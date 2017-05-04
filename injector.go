@@ -65,6 +65,9 @@ func (inj Injector) Inject(dst interface{}) error {
 		inj.mutex.RLock()
 		if name != "" {
 			dep, ok = inj.provider[name]
+			if dep.Type() != valueField.Type() && !dep.Type().Implements(typeField.Type){
+				return fmt.Errorf(`Type %v does not fit for field %v of type %v.`, dep.Type(), typeField.Name, typeField.Type)
+			}
 		} else {
 			dep, ok = inj.provider[typeField.Type]
 		}
