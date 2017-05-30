@@ -1,6 +1,8 @@
 # inject
 Small dependency injection package for golang.
 
+See injector_test.go for more examples.
+
 ## Package doc
 ```
 type Injector struct {

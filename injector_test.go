@@ -65,7 +65,7 @@ type iNeedSomeDepsMaybeOptional2 struct {
 	C dep `inject:"myDepC"`
 	D dep `inject:"myDepD*"`
 }
-/*
+
 func TestInjector_Inject(t *testing.T) {
 	// Create our injector
 	injector := NewInjector()
@@ -93,7 +93,7 @@ func TestInjector_Inject(t *testing.T) {
 	if iNeed.D.WhoAmI() != "D is my name" {
 		t.Fatal("D says something wrong.")
 	}
-}*/
+}
 
 func TestInjector_InjectMissingDeps(t *testing.T) {
 	injector := NewInjector()
@@ -111,8 +111,4 @@ func TestInjector_InjectMissingDeps(t *testing.T) {
 	if err := injector.Inject(&iNeedSomeDepsMaybeOptional2{}); err != nil{
 		t.Fatal("Inject should not fail because all required dependencies are provided")
 	}
-
-//	injector.ProvideNamed(depC{prefix: "C"}, "myDepC")
-//	injector.ProvideNamed(depD{prefix: "D"}, "myDepD")
-
 }
