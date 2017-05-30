@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"strings"
 )
 
 func NewInjector() *Injector {
@@ -31,7 +32,7 @@ func (inj *Injector) Provide(deps ...interface{}) {
 // ProvideNamed registers the given dependency with the given name.
 func (inj *Injector) ProvideNamed(dep interface{}, name string) {
 	inj.mutex.Lock()
-	inj.provider[name] = reflect.ValueOf(dep)
+	inj.provider[strings.TrimSuffix(name, "*")] = reflect.ValueOf(dep)
 	inj.mutex.Unlock()
 }
 
@@ -61,22 +62,39 @@ func (inj Injector) Inject(dst interface{}) error {
 			continue
 		}
 
+		required := false
+		if strings.HasSuffix(name, "*"){
+			required = true
+			name = strings.TrimSuffix(name, "*")
+		}
+
 		var dep reflect.Value
-		inj.mutex.RLock()
 		if name != "" {
+			inj.mutex.RLock()
 			dep, ok = inj.provider[name]
+			inj.mutex.RUnlock()
+
+			if !ok{
+				if required{
+					return fmt.Errorf(`Missing named "%v" dependency of type %v.`, name, typeField.Type.String())
+				}
+				continue
+			}
+
 			if dep.Type() != valueField.Type() && !dep.Type().Implements(typeField.Type){
 				return fmt.Errorf(`Type %v does not fit for field %v of type %v.`, dep.Type(), typeField.Name, typeField.Type)
 			}
 		} else {
+			inj.mutex.RLock()
 			dep, ok = inj.provider[typeField.Type]
+			inj.mutex.RUnlock()
+			if !ok {
+				if required {
+					return fmt.Errorf(`Missing unnamed dependency of type %v.`, typeField.Type.String())
+				}
+				continue
+			}
 		}
-		inj.mutex.RUnlock()
-
-		if !ok {
-			return fmt.Errorf(`Missing dependency of type %v.`, typeField.Type.String())
-		}
-
 		valueField.Set(dep)
 	}
 	return nil

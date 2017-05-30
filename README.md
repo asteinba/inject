@@ -41,10 +41,14 @@ type iNeedSomeDeps struct{
 	// Struct fields need to be exported to get resolved.
 	// Both below are resolved using the struct type
 	A depA `inject:""`
-	B depB `inject:""`
+	// Unnamed dependencies with a * in struct tag are required.
+	// Inject will throw an error if they are not provided.
+	B depB `inject:"*"`
 	// Both below are resolved using the name in struct tag
 	C dep `inject:"myDepC"`
-	D dep `inject:"myDepD"`
+	// Named dependencies with a trailing * in struct tag are required.
+	// Inject will throw an error if they are not provided.
+	D dep `inject:"myDepD*"`
 }
 
 

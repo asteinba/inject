@@ -50,7 +50,23 @@ type iNeedSomeDeps struct {
 	D dep `inject:"myDepD"`
 }
 
-func TestInjector_All(t *testing.T) {
+
+type iNeedSomeDepsMaybeOptional1 struct {
+	// Struct fields need to be exported to get resolved.
+	// Both below are resolved using the struct type.
+	// depB is required because of the *
+	A depA `inject:""`
+	B depB `inject:"*"`
+}
+
+type iNeedSomeDepsMaybeOptional2 struct {
+	// Both below are resolved using the name in struct tag
+	// myDepD is required because of the trailing *
+	C dep `inject:"myDepC"`
+	D dep `inject:"myDepD*"`
+}
+/*
+func TestInjector_Inject(t *testing.T) {
 	// Create our injector
 	injector := NewInjector()
 
@@ -77,4 +93,26 @@ func TestInjector_All(t *testing.T) {
 	if iNeed.D.WhoAmI() != "D is my name" {
 		t.Fatal("D says something wrong.")
 	}
+}*/
+
+func TestInjector_InjectMissingDeps(t *testing.T) {
+	injector := NewInjector()
+
+	injector.Provide(depA{prefix: "A"})
+	if injector.Inject(&iNeedSomeDepsMaybeOptional1{}) == nil{
+		t.Fatal("Inject should fail because a required unnamed dependency (depB) is missing but required.")
+	}
+
+	if injector.Inject(&iNeedSomeDepsMaybeOptional2{}) == nil{
+		t.Fatal("Inject should fail because a required named dependency (myDepD) is missing but required.")
+	}
+
+	injector.ProvideNamed(depD{prefix: "D"}, "myDepD")
+	if err := injector.Inject(&iNeedSomeDepsMaybeOptional2{}); err != nil{
+		t.Fatal("Inject should not fail because all required dependencies are provided")
+	}
+
+//	injector.ProvideNamed(depC{prefix: "C"}, "myDepC")
+//	injector.ProvideNamed(depD{prefix: "D"}, "myDepD")
+
 }
