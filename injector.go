@@ -130,14 +130,9 @@ func (inj Injector) Inject(dst interface{}, extraProviders ...ProviderMap) error
 }
 
 // This func is only a wrapper for Injector.Inject which panics if Injector.Inject returns a error.
-func (inj Injector) MustInject(dst interface{}, provider ...Provider) {
-	err := inj.Inject(dst)
+func (inj Injector) MustInject(dst interface{}, extraProviders ...ProviderMap) {
+	err := inj.Inject(dst, extraProviders...)
 	if err != nil {
 		panic(err)
 	}
-}
-
-type Provider struct {
-	Name string
-	Value interface{}
 }
