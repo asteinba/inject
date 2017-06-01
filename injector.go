@@ -8,31 +8,50 @@ import (
 	"strings"
 )
 
+type ProviderMap map[interface{}]reflect.Value
+
+// Provide registers the given dependencies. This func is NOT safe for concurrent use.
+func (pm ProviderMap) Provide(deps ...interface{}) {
+	for i := 0; i < len(deps); i++ {
+		valueOfProvider := reflect.ValueOf(deps[i])
+		pm[valueOfProvider.Type()] = valueOfProvider
+	}
+}
+
+// ProvideNamed registers the given dependency with the given name. This func is NOT safe for concurrent use.
+func (pm ProviderMap) ProvideNamed(dep interface{}, name string) {
+	pm[strings.TrimSuffix(name, "*")] = reflect.ValueOf(dep)
+}
+
+//Combine this ProviderMap with the given one.
+func (pm ProviderMap) combine(src ProviderMap) {
+	for k,v := range src{
+		pm[k] = v
+	}
+}
+
 func NewInjector() *Injector {
 	return &Injector{
-		provider: make(map[interface{}]reflect.Value, 0),
+		provider: make(ProviderMap, 0),
 	}
 }
 
 type Injector struct {
-	provider map[interface{}]reflect.Value
+	provider ProviderMap
 	mutex    sync.RWMutex
 }
 
-// Provide registers the given dependencies.
+// Provide registers the given dependencies. This func is safe for concurrent use.
 func (inj *Injector) Provide(deps ...interface{}) {
-	for i := 0; i < len(deps); i++ {
-		valueOfProvider := reflect.ValueOf(deps[i])
 		inj.mutex.Lock()
-		inj.provider[valueOfProvider.Type()] = valueOfProvider
+		inj.provider.Provide(deps...)
 		inj.mutex.Unlock()
-	}
 }
 
-// ProvideNamed registers the given dependency with the given name.
+// ProvideNamed registers the given dependency with the given name. This func is safe for concurrent use.
 func (inj *Injector) ProvideNamed(dep interface{}, name string) {
 	inj.mutex.Lock()
-	inj.provider[strings.TrimSuffix(name, "*")] = reflect.ValueOf(dep)
+	inj.provider.ProvideNamed(dep, name)
 	inj.mutex.Unlock()
 }
 
@@ -42,7 +61,17 @@ func (inj *Injector) ProvideNamed(dep interface{}, name string) {
 // You can pass a optional name to the struct tag (`inject:"name"`) and then the Injector only resolves the dependency
 // using the optional provider name of the Injector.Provide func. This is helpful if you want to pass multiple
 // dependencies with the same type.
-func (inj Injector) Inject(dst interface{}) error {
+// With the argument "extraProviders", you can pass some additional ProviderMaps which are only available while this injection.
+func (inj Injector) Inject(dst interface{}, extraProviders ...ProviderMap) error {
+	provider := make(ProviderMap)
+	inj.mutex.RLock()
+	provider.combine(inj.provider)
+	inj.mutex.RUnlock()
+
+	for _, extraProv := range extraProviders{
+		provider.combine(extraProv)
+	}
+
 	valueOfDst := reflect.ValueOf(dst)
 	if valueOfDst.Kind() != reflect.Ptr {
 		return errors.New(`Argument module has to be a pointer to a struct.`)
@@ -71,7 +100,7 @@ func (inj Injector) Inject(dst interface{}) error {
 		var dep reflect.Value
 		if name != "" {
 			inj.mutex.RLock()
-			dep, ok = inj.provider[name]
+			dep, ok = provider[name]
 			inj.mutex.RUnlock()
 
 			if !ok{
@@ -86,7 +115,7 @@ func (inj Injector) Inject(dst interface{}) error {
 			}
 		} else {
 			inj.mutex.RLock()
-			dep, ok = inj.provider[typeField.Type]
+			dep, ok = provider[typeField.Type]
 			inj.mutex.RUnlock()
 			if !ok {
 				if required {
@@ -101,9 +130,14 @@ func (inj Injector) Inject(dst interface{}) error {
 }
 
 // This func is only a wrapper for Injector.Inject which panics if Injector.Inject returns a error.
-func (inj Injector) MustInject(dst interface{}) {
+func (inj Injector) MustInject(dst interface{}, provider ...Provider) {
 	err := inj.Inject(dst)
 	if err != nil {
 		panic(err)
 	}
+}
+
+type Provider struct {
+	Name string
+	Value interface{}
 }

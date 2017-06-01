@@ -97,7 +97,6 @@ func TestInjector_Inject(t *testing.T) {
 
 func TestInjector_InjectMissingDeps(t *testing.T) {
 	injector := NewInjector()
-
 	injector.Provide(depA{prefix: "A"})
 	if injector.Inject(&iNeedSomeDepsMaybeOptional1{}) == nil{
 		t.Fatal("Inject should fail because a required unnamed dependency (depB) is missing but required.")
